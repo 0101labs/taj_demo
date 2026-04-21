@@ -7,7 +7,7 @@
  *   · Never touch cross-origin (embed.liveavatar.com, fonts.googleapis.com, unsplash) — let network handle
  */
 
-const VERSION = 'taj-v1.0.0';
+const VERSION = 'taj-v1.0.1';
 const CACHE = `taj-shell-${VERSION}`;
 
 const SHELL = [
