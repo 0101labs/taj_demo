@@ -387,6 +387,55 @@
   .installed-sub { font-size: 14px; color: var(--ink-soft); line-height: 1.5; margin-bottom: 28px; }
   .installed-close { padding: 14px 32px; background: var(--ink); color: var(--bg); border-radius: 999px; font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase; font-weight: 500; }
 
+  /* In-app browser warning banner */
+  .browser-warning {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 14px 20px;
+    z-index: 150;
+    display: none;
+    align-items: center; gap: 12px;
+    border-bottom: 2px solid var(--gold);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .browser-warning.show { display: flex; }
+  .browser-warning-icon {
+    flex-shrink: 0;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink);
+  }
+  .browser-warning-text {
+    flex: 1;
+    font-size: 12px; line-height: 1.4;
+    color: var(--bg);
+  }
+  .browser-warning-text strong {
+    color: var(--gold-light);
+    font-weight: 600;
+  }
+  .browser-warning-btn {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    background: var(--gold-light);
+    color: var(--ink);
+    border-radius: 999px;
+    font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+  }
+  body.has-warning .nav { top: 60px; }
+  body.has-warning .hero { padding-top: 180px; }
+  @media (max-width: 560px) {
+    .browser-warning { padding: 10px 14px; gap: 8px; }
+    .browser-warning-icon { width: 28px; height: 28px; }
+    .browser-warning-text { font-size: 11px; }
+    .browser-warning-btn { padding: 6px 10px; font-size: 10px; }
+  }
+
   @media (max-width: 960px) {
     .hero-grid, .install-grid { grid-template-columns: 1fr; gap: 40px; }
     .hero-visual { min-height: 560px; }
@@ -410,6 +459,17 @@
   <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M19 12H5m0 0l7-7m-7 7l7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
   Exit preview
 </button>
+
+<!-- In-app browser warning banner -->
+<div class="browser-warning" id="browserWarning">
+  <div class="browser-warning-icon">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M4.93 19h14.14a2 2 0 001.77-2.93L13.77 4.07a2 2 0 00-3.54 0L3.16 16.07A2 2 0 004.93 19z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+  <div class="browser-warning-text" id="browserWarningText">
+    To install this app, open in <strong>Safari</strong> or <strong>Chrome</strong> — not this in-app browser.
+  </div>
+  <button class="browser-warning-btn" id="browserWarningBtn" onclick="copyLinkToClipboard()">Copy link</button>
+</div>
 
 <nav class="nav">
   <div class="container nav-inner">
@@ -641,6 +701,80 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Show warning banner if user is in an in-app browser or iOS non-Safari
+function checkBrowserAndWarn() {
+  var ua = navigator.userAgent;
+  var isIOS = /iPhone|iPad|iPod/.test(ua) && !window.MSStream;
+  var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+  // Don't show banner if already installed or in app mode
+  if (isStandalone) return;
+  if (window.location.search.indexOf('app=1') !== -1) return;
+
+  var isInstagram = /Instagram/i.test(ua);
+  var isFacebook = /FBAN|FBAV|FB_IAB/i.test(ua);
+  var isLinkedIn = /LinkedIn/i.test(ua);
+  var isTwitter = /Twitter/i.test(ua);
+  var isTikTok = /TikTok|musical_ly|BytedanceWebview/i.test(ua);
+  var isSnapchat = /Snapchat/i.test(ua);
+  var isWhatsApp = /WhatsApp/i.test(ua);
+  var isInAppBrowser = isInstagram || isFacebook || isLinkedIn || isTwitter || isTikTok || isSnapchat || isWhatsApp;
+
+  var isIOSChrome = isIOS && /CriOS/.test(ua);
+  var isIOSFirefox = isIOS && /FxiOS/.test(ua);
+  var isIOSEdge = isIOS && /EdgiOS/.test(ua);
+  var isIOSNonSafari = isIOSChrome || isIOSFirefox || isIOSEdge;
+
+  var banner = document.getElementById('browserWarning');
+  var text = document.getElementById('browserWarningText');
+  if (!banner) return;
+
+  if (isInAppBrowser) {
+    var appName = isInstagram ? 'Instagram' :
+                  isFacebook ? 'Facebook' :
+                  isLinkedIn ? 'LinkedIn' :
+                  isTwitter ? 'Twitter' :
+                  isTikTok ? 'TikTok' :
+                  isSnapchat ? 'Snapchat' :
+                  isWhatsApp ? 'WhatsApp' : 'this app';
+    text.innerHTML = 'You\'re viewing this inside <strong>' + appName + '</strong>. To install the Taj app, open this page in ' + (isIOS ? '<strong>Safari</strong>' : '<strong>Chrome</strong>') + '.';
+    banner.classList.add('show');
+    document.body.classList.add('has-warning');
+  } else if (isIOSNonSafari) {
+    text.innerHTML = 'Install only works in <strong>Safari</strong> on iPhone. Copy this link and paste in Safari to install.';
+    banner.classList.add('show');
+    document.body.classList.add('has-warning');
+  }
+}
+
+function copyLinkToClipboard() {
+  var btn = document.getElementById('browserWarningBtn');
+  var url = window.location.href.split('?')[0]; // strip ?app=1 if present
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(function() {
+      btn.textContent = 'Copied ✓';
+      setTimeout(function() { btn.textContent = 'Copy link'; }, 2000);
+    });
+  } else {
+    // Fallback
+    var temp = document.createElement('input');
+    temp.value = url;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand('copy');
+    document.body.removeChild(temp);
+    btn.textContent = 'Copied ✓';
+    setTimeout(function() { btn.textContent = 'Copy link'; }, 2000);
+  }
+}
+
+// Run banner check on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', checkBrowserAndWarn);
+} else {
+  checkBrowserAndWarn();
+}
+
 // When installed or ?app=1 — show the avatar full-screen
 function enterAppMode() {
   document.body.classList.add('taj-app-mode');
@@ -743,7 +877,36 @@ function getPlatform() {
   var isIOS = /iPhone|iPad|iPod/.test(ua) && !window.MSStream;
   var isAndroid = /Android/.test(ua);
   var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  return { isIOS: isIOS, isAndroid: isAndroid, isStandalone: isStandalone };
+
+  // Detect in-app browsers (the #1 cause of install failures)
+  var isInstagram = /Instagram/i.test(ua);
+  var isFacebook = /FBAN|FBAV|FB_IAB/i.test(ua);
+  var isLinkedIn = /LinkedIn/i.test(ua);
+  var isTwitter = /Twitter/i.test(ua);
+  var isTikTok = /TikTok|musical_ly|BytedanceWebview/i.test(ua);
+  var isSnapchat = /Snapchat/i.test(ua);
+  var isLine = /Line\//i.test(ua);
+  var isWeChat = /MicroMessenger/i.test(ua);
+  var isWhatsApp = /WhatsApp/i.test(ua);
+  var isGmailApp = /GSA\//i.test(ua);
+  var isInAppBrowser = isInstagram || isFacebook || isLinkedIn || isTwitter || isTikTok || isSnapchat || isLine || isWeChat || isWhatsApp || isGmailApp;
+
+  // On iOS, only Safari can install. Chrome/Firefox/Edge on iOS cannot.
+  // iOS Safari has "Version/" in UA but Chrome iOS has "CriOS", Firefox iOS has "FxiOS", Edge iOS has "EdgiOS"
+  var isIOSChrome = isIOS && /CriOS/.test(ua);
+  var isIOSFirefox = isIOS && /FxiOS/.test(ua);
+  var isIOSEdge = isIOS && /EdgiOS/.test(ua);
+  var isIOSOther = isIOS && (isIOSChrome || isIOSFirefox || isIOSEdge);
+  var isIOSSafari = isIOS && !isIOSOther && !isInAppBrowser && /Safari/.test(ua);
+
+  return {
+    isIOS: isIOS,
+    isAndroid: isAndroid,
+    isStandalone: isStandalone,
+    isInAppBrowser: isInAppBrowser,
+    isIOSSafari: isIOSSafari,
+    isIOSOther: isIOSOther
+  };
 }
 
 function triggerInstall() {
@@ -757,6 +920,35 @@ function triggerInstall() {
     return;
   }
 
+  // CASE 1: User is in an in-app browser (WhatsApp, Instagram, etc.) — can't install from here
+  if (p.isInAppBrowser) {
+    sub.innerHTML = 'This link opened inside an app. Tap the <strong>"⋯"</strong> or <strong>"Open in Browser"</strong> option to continue in Safari or Chrome, then try install again.';
+    btn.textContent = 'Copy link';
+    btn.onclick = function() {
+      navigator.clipboard && navigator.clipboard.writeText(window.location.href).then(function() {
+        btn.textContent = 'Copied ✓';
+        setTimeout(function() { toast.classList.remove('show'); }, 1200);
+      });
+    };
+    toast.classList.add('show');
+    return;
+  }
+
+  // CASE 2: User is on iOS Chrome/Firefox/Edge — Apple doesn't allow install, must use Safari
+  if (p.isIOSOther) {
+    sub.innerHTML = 'Install on iOS only works in <strong>Safari</strong>. Copy this link, open Safari, paste it, then tap Share → Add to Home Screen.';
+    btn.textContent = 'Copy link';
+    btn.onclick = function() {
+      navigator.clipboard && navigator.clipboard.writeText(window.location.href).then(function() {
+        btn.textContent = 'Copied ✓';
+        setTimeout(function() { toast.classList.remove('show'); }, 1200);
+      });
+    };
+    toast.classList.add('show');
+    return;
+  }
+
+  // CASE 3: Native install supported (Chrome/Edge on Android or desktop)
   if (deferredPrompt) {
     deferredPrompt.prompt();
     deferredPrompt.userChoice.then(function(choice) {
@@ -766,22 +958,28 @@ function triggerInstall() {
     return;
   }
 
+  // CASE 4: iOS Safari — no programmatic install, show manual instructions
   if (p.isIOS) {
-    sub.textContent = 'Tap the Share icon, then "Add to Home Screen"';
+    sub.innerHTML = 'Tap the <strong>Share</strong> icon (box with ↑), scroll down, then tap <strong>"Add to Home Screen"</strong>.';
     btn.textContent = 'Got it';
     btn.onclick = function() { toast.classList.remove('show'); };
-  } else if (p.isAndroid) {
-    sub.textContent = 'Tap the browser menu (⋮), then "Install app"';
-    btn.textContent = 'Got it';
-    btn.onclick = function() { toast.classList.remove('show'); };
-  } else {
-    sub.textContent = 'Simulating install on this demo...';
-    btn.textContent = 'Install';
-    btn.onclick = function() {
-      toast.classList.remove('show');
-      setTimeout(function() { showInstalled(); }, 350);
-    };
+    toast.classList.add('show');
+    return;
   }
+
+  // CASE 5: Android without deferredPrompt — may not have visited long enough yet
+  if (p.isAndroid) {
+    sub.innerHTML = 'Tap the browser menu (<strong>⋮</strong>) and choose <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.';
+    btn.textContent = 'Got it';
+    btn.onclick = function() { toast.classList.remove('show'); };
+    toast.classList.add('show');
+    return;
+  }
+
+  // CASE 6: Desktop without deferredPrompt — demo the success state
+  sub.textContent = 'On desktop, look for the install icon in your browser address bar.';
+  btn.textContent = 'OK';
+  btn.onclick = function() { toast.classList.remove('show'); };
   toast.classList.add('show');
 }
 
